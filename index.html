@@ -621,7 +621,7 @@
   <div class="preview-modal-inner">
     <img id="preview-modal-img" alt="Pré-visualização da imagem">
   </div>
-  <p class="preview-modal-hint" id="preview-modal-hint">Toque e arraste a imagem para ajustar a posição.</p>
+  <p class="preview-modal-hint" id="preview-modal-hint">Toque e arraste para reposicionar · pinça/scroll para zoom</p>
   <div class="preview-modal-actions">
     <button type="button" class="modal-btn back" id="preview-back-btn">← Voltar a editar</button>
     <button type="button" class="modal-btn download" id="preview-download-btn">⬇ Baixar imagem</button>
@@ -633,9 +633,11 @@
 <script>
 let W = 1080, H = 1350;
 const SIZE_PRESETS = [
-  { key:'novo',      label: 'Feed (3:4)',                  short:'Feed',     w: 1080, h: 1440, ratioW: 3,  ratioH: 4 },
+  { key:'feed',      label: 'Feed (4:5)',                  short:'Feed',     w: 1080, h: 1350, ratioW: 4,  ratioH: 5 },
+  { key:'novo',      label: 'Feed novo (3:4)',              short:'Feed novo',w: 1080, h: 1440, ratioW: 3,  ratioH: 4 },
   { key:'square',    label: 'Quadrado (1:1)',              short:'Quadrado', w: 1080, h: 1080, ratioW: 1,  ratioH: 1 },
-  { key:'landscape', label: 'Paisagem (16:9) · computador', short:'Paisagem', w: 1920, h: 1080, ratioW: 16, ratioH: 9 }
+  { key:'landscape', label: 'Paisagem (16:9) · computador', short:'Paisagem', w: 1920, h: 1080, ratioW: 16, ratioH: 9 },
+  { key:'stories',   label: 'Stories (9:16)',               short:'Stories',  w: 1080, h: 1920, ratioW: 9,  ratioH: 16 }
 ];
 
 function ratioIconSVG(ratioW, ratioH) {
@@ -761,7 +763,7 @@ function loadSettings() {
 const sizeToggleWrap = document.getElementById('size-toggle');
 const sizeExtraWrap = document.getElementById('size-list-extra');
 const subLabel = document.getElementById('sub-label');
-let currentSizeKey = 'novo';
+let currentSizeKey = 'feed';
 
 function setSize(preset, skipSave) {
   currentSizeKey = preset.key;
@@ -778,7 +780,7 @@ function setSize(preset, skipSave) {
 }
 
 // two quick chips up top (most common), the full set with icons lives in "Outro tamanho"
-[SIZE_PRESETS.find(p => p.key === 'novo'), SIZE_PRESETS.find(p => p.key === 'square')].forEach(preset => {
+[SIZE_PRESETS.find(p => p.key === 'feed'), SIZE_PRESETS.find(p => p.key === 'stories')].forEach(preset => {
   const btn = document.createElement('div');
   btn.className = 'chip';
   btn.dataset.key = preset.key;
@@ -1498,7 +1500,7 @@ function isIOS() {
 }
 
 function withFinalRender(fn) {
-  const useTransparent = !bgImage && H === 1920;
+  const useTransparent = !bgImage;
   if (useTransparent) draw({ transparentExport: true });
   fn();
   if (useTransparent) draw();
@@ -1599,6 +1601,49 @@ function endModalDrag(e) {
 previewModalImg.addEventListener('pointerup', endModalDrag);
 previewModalImg.addEventListener('pointercancel', endModalDrag);
 previewModalImg.addEventListener('pointerleave', endModalDrag);
+
+// wheel zoom (desktop) on the preview image
+previewModalImg.addEventListener('wheel', e => {
+  if (!bgImage) return;
+  e.preventDefault();
+  bgZoom = Math.max(1, Math.min(3, bgZoom - e.deltaY * 0.0015));
+  draw();
+  updateModalPreview();
+}, { passive: false });
+
+// pinch-to-zoom (touch) on the preview image
+const modalActiveTouches = new Map();
+let modalPinchState = null;
+
+previewModalImg.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch') return;
+  modalActiveTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (modalActiveTouches.size === 2) {
+    modalDragState = null;
+    const pts = [...modalActiveTouches.values()];
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    modalPinchState = { startDist: dist, startZoom: bgZoom };
+  }
+});
+previewModalImg.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'touch' || !modalActiveTouches.has(e.pointerId)) return;
+  modalActiveTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (modalPinchState && modalActiveTouches.size === 2 && bgImage) {
+    const pts = [...modalActiveTouches.values()];
+    const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+    const ratio = dist / modalPinchState.startDist;
+    bgZoom = Math.max(1, Math.min(3, modalPinchState.startZoom * ratio));
+    draw();
+    updateModalPreview();
+  }
+});
+function releaseModalTouch(e) {
+  if (e.pointerType !== 'touch') return;
+  modalActiveTouches.delete(e.pointerId);
+  if (modalActiveTouches.size < 2) modalPinchState = null;
+}
+previewModalImg.addEventListener('pointerup', releaseModalTouch);
+previewModalImg.addEventListener('pointercancel', releaseModalTouch);
 
 /* ---------- apply saved settings on load ---------- */
 (function applySavedSettings() {
