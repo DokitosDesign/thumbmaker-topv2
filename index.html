@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Thumbnail Radio TOP FM 87.9 FM</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,6 +18,7 @@
     --accent: #e4002b;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html{ touch-action:pan-y; }
   html,body{
     margin:0;padding:0;
     background:var(--bg);
@@ -32,6 +33,11 @@
     display:flex;
     flex-direction:column;
     gap:18px;
+  }
+  .brand-block{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
   }
   .brand{
     display:flex;
@@ -178,8 +184,25 @@
   }
   .paste-btn:hover{ color:var(--text); border-color:var(--accent); }
   .headline-hint{ font-size:11px; color:var(--text-dim); }
+  .hint{ font-size:11px; color:var(--text-dim); line-height:1.4; margin:0; }
 
   /* chips */
+  #category-groups{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .category-group{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  .category-group-title{
+    font-size:11px;
+    font-weight:700;
+    color:var(--text-dim);
+    letter-spacing:.03em;
+  }
   .chip-row{
     display:flex;
     flex-wrap:wrap;
@@ -207,6 +230,13 @@
   }
   .chip .dot{
     width:9px; height:9px; border-radius:50%; flex:none;
+  }
+  .chip.custom{
+    border-style:dashed;
+    border-color:rgba(255,255,255,.4);
+  }
+  .chip.custom .dot{
+    box-shadow:0 0 0 2px rgba(255,255,255,.22);
   }
   .chip.pressing{ opacity:.55; }
 
@@ -295,6 +325,22 @@
   }
   .pos-btn:hover{ transform:translateY(-1px); }
   .pos-btn.active{ border-color:var(--accent); background:rgba(228,0,43,0.12); color:#fff; }
+
+  .size-option{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:6px;
+    min-width:84px;
+    padding:12px 8px;
+  }
+  .size-option .ratio-icon{ color:var(--text-dim); }
+  .size-option.active .ratio-icon{ color:#fff; }
+  .size-option span{ line-height:1.25; }
+
+  .chip .ratio-icon{ color:var(--text-dim); flex:none; }
+  .chip.active .ratio-icon{ color:#fff; }
 
   .reset-pos-btn{
     padding:9px 12px;
@@ -413,6 +459,15 @@
     max-height:100%;
     border-radius:10px;
     box-shadow:0 20px 60px rgba(0,0,0,.6);
+    touch-action:none;
+    cursor:grab;
+  }
+  .preview-modal-inner img:active{ cursor:grabbing; }
+  .preview-modal-hint{
+    font-size:11.5px;
+    color:var(--text-dim);
+    text-align:center;
+    flex:none;
   }
   .preview-modal-actions{
     display:flex;
@@ -511,12 +566,13 @@
 
   <div class="section">
     <div class="label-row"><label class="title">Categoria / Template</label></div>
-    <div class="chip-row" id="category-list"></div>
+    <div id="category-groups"></div>
     <div class="add-category">
       <input type="text" id="new-cat-label" placeholder="Nova categoria" maxlength="20">
       <input type="color" id="new-cat-color" value="#e4002b">
       <button type="button" id="add-cat-btn">Adicionar</button>
     </div>
+    <p class="hint">Toque para escolher. Se pressionar, a categoria criada por você será removida.</p>
   </div>
 
   <button type="button" class="advanced-toggle" id="advanced-toggle">
@@ -557,7 +613,7 @@
 <div class="download-bar">
   <div class="download-bar-inner">
     <button type="button" class="preview-btn" id="preview-btn">👁 Visualizar</button>
-    <button class="download-btn" id="download-btn">⬇ Baixar PNG</button>
+    <button class="download-btn" id="download-btn">⬇ Baixar imagem</button>
   </div>
 </div>
 
@@ -565,9 +621,10 @@
   <div class="preview-modal-inner">
     <img id="preview-modal-img" alt="Pré-visualização da imagem">
   </div>
+  <p class="preview-modal-hint" id="preview-modal-hint">Toque e arraste a imagem para ajustar a posição.</p>
   <div class="preview-modal-actions">
     <button type="button" class="modal-btn back" id="preview-back-btn">← Voltar a editar</button>
-    <button type="button" class="modal-btn download" id="preview-download-btn">⬇ Baixar PNG</button>
+    <button type="button" class="modal-btn download" id="preview-download-btn">⬇ Baixar imagem</button>
   </div>
 </div>
 
@@ -576,12 +633,20 @@
 <script>
 let W = 1080, H = 1350;
 const SIZE_PRESETS = [
-  { key:'feed',      label: 'Feed (4:5)',       short:'Feed',       w: 1080, h: 1350 },
-  { key:'novo',      label: 'Feed novo (3:4)',  short:'Feed novo',  w: 1080, h: 1440 },
-  { key:'square',    label: 'Quadrado (1:1)',   short:'Quadrado',   w: 1080, h: 1080 },
-  { key:'landscape', label: 'Paisagem (16:9) · computador', short:'Paisagem', w: 1920, h: 1080 },
-  { key:'stories',   label: 'Vertical (9:16) · stories/reels', short:'Stories', w: 1080, h: 1920 }
+  { key:'novo',      label: 'Feed (3:4)',                  short:'Feed',     w: 1080, h: 1440, ratioW: 3,  ratioH: 4 },
+  { key:'square',    label: 'Quadrado (1:1)',              short:'Quadrado', w: 1080, h: 1080, ratioW: 1,  ratioH: 1 },
+  { key:'landscape', label: 'Paisagem (16:9) · computador', short:'Paisagem', w: 1920, h: 1080, ratioW: 16, ratioH: 9 }
 ];
+
+function ratioIconSVG(ratioW, ratioH) {
+  const box = 22, maxDim = 15;
+  let iw, ih;
+  if (ratioW >= ratioH) { iw = maxDim; ih = maxDim * ratioH / ratioW; }
+  else { ih = maxDim; iw = maxDim * ratioW / ratioH; }
+  const x = ((box - iw) / 2).toFixed(1);
+  const y = ((box - ih) / 2).toFixed(1);
+  return `<svg viewBox="0 0 ${box} ${box}" width="18" height="18" class="ratio-icon"><rect x="${x}" y="${y}" width="${iw.toFixed(1)}" height="${ih.toFixed(1)}" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/></svg>`;
+}
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const toastEl = document.getElementById('toast');
@@ -593,27 +658,60 @@ function showToast(msg, ms) {
   showToast._t = setTimeout(() => toastEl.classList.remove('show'), ms || 2600);
 }
 
-const CATEGORIES = [
-  { emoji: '🔴', label: 'Urgente',        color: '#E4002B', textColor: '#ffffff', big: true },
-  { emoji: '📻', label: 'Ao Vivo',        color: '#E4002B', textColor: '#ffffff', big: true },
-  { emoji: '🔵', label: 'Política',       color: '#0057FF', textColor: '#ffffff' },
-  { emoji: '🟢', label: 'Economia',       color: '#00B050', textColor: '#ffffff' },
-  { emoji: '🟠', label: 'Cidades',        color: '#FF6A00', textColor: '#ffffff' },
-  { emoji: '🟣', label: 'Mundo',          color: '#8A2BE2', textColor: '#ffffff' },
-  { emoji: '🟢', label: 'Esportes',       color: '#AACC00', textColor: '#1A1A1A' },
-  { emoji: '❤️', label: 'Saúde',          color: '#C8102E', textColor: '#ffffff' },
-  { emoji: '🔷', label: 'Tecnologia',     color: '#00B8D9', textColor: '#ffffff' },
-  { emoji: '🟡', label: 'Entretenimento', color: '#FFC400', textColor: '#1A1A1A' },
-  { emoji: '🟡', label: 'Humor',          color: '#FFDE59', textColor: '#1A1A1A' },
-  { emoji: '🟤', label: 'Cultura',        color: '#8B5E3C', textColor: '#ffffff' },
-  { emoji: '🌿', label: 'Meio Ambiente',  color: '#1B5E20', textColor: '#ffffff' },
-  { emoji: '🎤', label: 'Entrevista',     color: '#6D4AFF', textColor: '#ffffff' },
-  { emoji: '⛅', label: 'Tempo',          color: '#2CA9E1', textColor: '#ffffff' },
-  { emoji: '🗳️', label: 'Eleições 2026',  color: '#1F4E8C', textColor: '#ffffff' },
-  { emoji: '⚖️', label: 'Justiça',        color: '#4B2E83', textColor: '#ffffff' },
-  { emoji: '🎵', label: 'Música',         color: '#D6006C', textColor: '#ffffff' },
-  { emoji: '📢', label: 'Utilidade Pública', color: '#0097A7', textColor: '#ffffff' }
+// block the browser's native pinch-to-zoom on the whole page (iOS Safari)
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('touchmove', e => {
+  if (e.touches && e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+
+const CATEGORY_GROUPS = [
+  { group: 'Institucional', groupEmoji: '🔵', items: [
+      { label: 'Polícia',  color: '#1E40AF' },
+      { label: 'Política', color: '#2563EB' },
+      { label: 'Eleições', color: '#1D4ED8' },
+      { label: 'Justiça',  color: '#3B82F6' }
+  ]},
+  { group: 'Economia e Natureza', groupEmoji: '🟢', items: [
+      { label: 'Economia',      color: '#22C55E' },
+      { label: 'Meio Ambiente', color: '#16A34A' }
+  ]},
+  { group: 'Alertas', groupEmoji: '🔴', items: [
+      { label: 'Urgente', color: '#FF3B30', big: true },
+      { label: 'Ao Vivo', color: '#FF1744', big: true }
+  ]},
+  { group: 'Comunidade', groupEmoji: '🟠', items: [
+      { label: 'Cidades',           color: '#F97316' },
+      { label: 'Utilidade Pública', color: '#F9BC16' }
+  ]},
+  { group: 'Ciência e Mundo', groupEmoji: '🔷', items: [
+      { label: 'Mundo',       color: '#0EA5E9' },
+      { label: 'Tecnologia',  color: '#06B6D4' },
+      { label: 'Tempo',       color: '#38BDF8' }
+  ]},
+  { group: 'Lazer', groupEmoji: '🎉', items: [
+      { label: 'Esportes',       color: '#84CC16' },
+      { label: 'Entretenimento', color: '#FACC15' },
+      { label: 'Humor',          color: '#FBBF24' },
+      { label: 'Cultura',        color: '#A16207' },
+      { label: 'Música',        color: '#D946EF' },
+      { label: 'Entrevista',     color: '#8B5CF6' }
+  ]}
 ];
+
+const CATEGORIES = [];
+CATEGORY_GROUPS.forEach(g => {
+  g.items.forEach(item => {
+    CATEGORIES.push({
+      label: item.label,
+      color: item.color,
+      textColor: getContrastText(item.color),
+      big: !!item.big,
+      group: g.group,
+      groupEmoji: g.groupEmoji
+    });
+  });
+});
 
 let selectedCategory = CATEGORIES[0];
 let lineColor = selectedCategory.color;
@@ -663,7 +761,7 @@ function loadSettings() {
 const sizeToggleWrap = document.getElementById('size-toggle');
 const sizeExtraWrap = document.getElementById('size-list-extra');
 const subLabel = document.getElementById('sub-label');
-let currentSizeKey = 'feed';
+let currentSizeKey = 'novo';
 
 function setSize(preset, skipSave) {
   currentSizeKey = preset.key;
@@ -679,20 +777,20 @@ function setSize(preset, skipSave) {
   draw();
 }
 
-// two quick chips (Feed / Stories) up top, the rest tucked into "Outro tamanho"
-[SIZE_PRESETS.find(p => p.key === 'feed'), SIZE_PRESETS.find(p => p.key === 'stories')].forEach(preset => {
+// two quick chips up top (most common), the full set with icons lives in "Outro tamanho"
+[SIZE_PRESETS.find(p => p.key === 'novo'), SIZE_PRESETS.find(p => p.key === 'square')].forEach(preset => {
   const btn = document.createElement('div');
   btn.className = 'chip';
   btn.dataset.key = preset.key;
-  btn.textContent = preset.short;
+  btn.innerHTML = `${ratioIconSVG(preset.ratioW, preset.ratioH)}<span>${preset.short}</span>`;
   btn.addEventListener('click', () => setSize(preset));
   sizeToggleWrap.appendChild(btn);
 });
 SIZE_PRESETS.forEach(preset => {
   const btn = document.createElement('div');
-  btn.className = 'pos-btn';
+  btn.className = 'pos-btn size-option';
   btn.dataset.key = preset.key;
-  btn.textContent = preset.label;
+  btn.innerHTML = `${ratioIconSVG(preset.ratioW, preset.ratioH)}<span>${preset.label}</span>`;
   btn.addEventListener('click', () => setSize(preset));
   sizeExtraWrap.appendChild(btn);
 });
@@ -720,7 +818,7 @@ LOGO_ALIGNS.forEach(opt => {
 });
 
 /* ---------- categories / templates as chips ---------- */
-const categoryWrap = document.getElementById('category-list');
+const categoryGroupsWrap = document.getElementById('category-groups');
 
 function getContrastText(hex) {
   const c = hex.replace('#', '');
@@ -728,6 +826,63 @@ function getContrastText(hex) {
   const r = (num >> 16) & 255, g = (num >> 8) & 255, b = num & 255;
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
   return luminance > 0.62 ? '#1A1A1A' : '#ffffff';
+}
+
+function hexToRgb(hex) {
+  hex = hex.replace('#', '');
+  return { r: parseInt(hex.substr(0, 2), 16), g: parseInt(hex.substr(2, 2), 16), b: parseInt(hex.substr(4, 2), 16) };
+}
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h, s, l = (max + min) / 2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h, s, l };
+}
+function hslToRgb(h, s, l) {
+  let r, g, b;
+  if (s === 0) { r = g = b = l; }
+  else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+// same hue/color, just a slightly different tone — used to visually mark custom categories
+function adjustTone(hex, deltaL) {
+  try {
+    const { r, g, b } = hexToRgb(hex);
+    const hsl = rgbToHsl(r, g, b);
+    const l = Math.max(0.06, Math.min(0.94, hsl.l + deltaL));
+    const rgb = hslToRgb(hsl.h, hsl.s, l);
+    return rgbToHex(rgb.r, rgb.g, rgb.b);
+  } catch (e) {
+    return hex;
+  }
 }
 
 function saveCustomCategories() {
@@ -742,26 +897,37 @@ function loadCustomCategories() {
     const raw = localStorage.getItem(CUSTOM_CATEGORY_STORAGE_KEY);
     if (!raw) return;
     const custom = JSON.parse(raw);
-    custom.forEach(cat => {
-      CATEGORIES.push(cat);
-      addCategoryChip(cat, false);
-    });
+    custom.forEach(cat => CATEGORIES.push(cat));
   } catch (e) {}
 }
 
-function selectCategory(cat, btn) {
+function selectCategory(cat) {
   selectedCategory = cat;
   lineColor = cat.color;
-  [...categoryWrap.children].forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
   saveSettings();
+  renderCategoryGroups();
   draw();
 }
 
-function addCategoryChip(cat, select) {
+function deleteCategory(cat) {
+  const idx = CATEGORIES.indexOf(cat);
+  if (idx !== -1) CATEGORIES.splice(idx, 1);
+  saveCustomCategories();
+  if (selectedCategory === cat) {
+    selectedCategory = CATEGORIES.find(c => !c.custom) || CATEGORIES[0];
+    lineColor = selectedCategory.color;
+    saveSettings();
+  }
+  renderCategoryGroups();
+  draw();
+  showToast('Categoria removida');
+}
+
+function makeCategoryChip(cat) {
   const btn = document.createElement('div');
-  btn.className = 'chip';
-  btn.innerHTML = `<span class="dot" style="background:${cat.color}"></span><span>${cat.label}</span>`;
+  btn.className = 'chip' + (cat.custom ? ' custom' : '') + (selectedCategory === cat ? ' active' : '');
+  const dotColor = cat.custom ? adjustTone(cat.color, -0.14) : cat.color;
+  btn.innerHTML = `<span class="dot" style="background:${dotColor}"></span><span>${cat.label}</span>`;
 
   let pressTimer = null;
   let longPressed = false;
@@ -772,20 +938,7 @@ function addCategoryChip(cat, select) {
     btn.classList.add('pressing');
     pressTimer = setTimeout(() => {
       longPressed = true;
-      btn.classList.remove('pressing');
-      const idx = CATEGORIES.indexOf(cat);
-      if (idx !== -1) CATEGORIES.splice(idx, 1);
-      btn.remove();
-      saveCustomCategories();
-      if (selectedCategory === cat) {
-        selectedCategory = CATEGORIES[0];
-        lineColor = selectedCategory.color;
-        [...categoryWrap.children].forEach(b => b.classList.remove('active'));
-        categoryWrap.children[0] && categoryWrap.children[0].classList.add('active');
-        saveSettings();
-        draw();
-      }
-      showToast('Categoria removida');
+      deleteCategory(cat);
     }, 600);
   };
   const cancelPress = () => {
@@ -800,19 +953,57 @@ function addCategoryChip(cat, select) {
 
   btn.addEventListener('click', () => {
     if (longPressed) { longPressed = false; return; }
-    selectCategory(cat, btn);
+    selectCategory(cat);
   });
 
-  categoryWrap.appendChild(btn);
-  if (select) selectCategory(cat, btn);
   return btn;
 }
 
-CATEGORIES.forEach((cat, i) => {
-  const btn = addCategoryChip(cat, false);
-  if (i === 0) btn.classList.add('active');
-});
+function renderCategoryGroups() {
+  categoryGroupsWrap.innerHTML = '';
+
+  // standard categories, grouped by theme, in first-seen order
+  const order = [];
+  const byGroup = {};
+  CATEGORIES.filter(c => !c.custom).forEach(cat => {
+    if (!byGroup[cat.group]) { byGroup[cat.group] = []; order.push(cat.group); }
+    byGroup[cat.group].push(cat);
+  });
+
+  order.forEach(groupName => {
+    const cats = byGroup[groupName];
+    const section = document.createElement('div');
+    section.className = 'category-group';
+    const title = document.createElement('div');
+    title.className = 'category-group-title';
+    title.textContent = `${cats[0].groupEmoji} ${groupName}`;
+    const row = document.createElement('div');
+    row.className = 'chip-row';
+    cats.forEach(cat => row.appendChild(makeCategoryChip(cat)));
+    section.appendChild(title);
+    section.appendChild(row);
+    categoryGroupsWrap.appendChild(section);
+  });
+
+  // custom (user-created) categories always shown as their own separate group
+  const customCats = CATEGORIES.filter(c => c.custom);
+  if (customCats.length) {
+    const section = document.createElement('div');
+    section.className = 'category-group';
+    const title = document.createElement('div');
+    title.className = 'category-group-title';
+    title.textContent = '✨ Criadas por você';
+    const row = document.createElement('div');
+    row.className = 'chip-row';
+    customCats.forEach(cat => row.appendChild(makeCategoryChip(cat)));
+    section.appendChild(title);
+    section.appendChild(row);
+    categoryGroupsWrap.appendChild(section);
+  }
+}
+
 loadCustomCategories();
+renderCategoryGroups();
 
 document.getElementById('add-cat-btn').addEventListener('click', () => {
   const labelInput = document.getElementById('new-cat-label');
@@ -820,10 +1011,10 @@ document.getElementById('add-cat-btn').addEventListener('click', () => {
   const label = labelInput.value.trim();
   if (!label) return;
   const color = colorInput.value;
-  const newCat = { emoji: '', label, color, textColor: getContrastText(color), custom: true };
+  const newCat = { label, color, textColor: getContrastText(color), custom: true };
   CATEGORIES.push(newCat);
-  addCategoryChip(newCat, true);
   saveCustomCategories();
+  selectCategory(newCat);
   labelInput.value = '';
 });
 document.getElementById('new-cat-label').addEventListener('keydown', e => {
@@ -976,8 +1167,8 @@ const canvasShell = document.getElementById('canvas-shell');
 let dragState = null;
 let pinchState = null;
 let armTimer = null;
-const HOLD_MS = 160;
-const MOVE_CANCEL_PX = 10;
+const HOLD_MS = 70;
+const MOVE_CANCEL_PX = 8;
 
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
 
@@ -1348,19 +1539,66 @@ document.getElementById('download-btn').addEventListener('click', downloadImage)
 /* ---------- preview modal ---------- */
 const previewModal = document.getElementById('preview-modal');
 const previewModalImg = document.getElementById('preview-modal-img');
+const previewModalHint = document.getElementById('preview-modal-hint');
 
 document.getElementById('preview-btn').addEventListener('click', () => {
   withFinalRender(() => {
     previewModalImg.src = canvas.toDataURL('image/png');
   });
   previewModal.classList.add('open');
+  if (previewModalHint) previewModalHint.style.display = bgImage ? '' : 'none';
 });
 
-document.getElementById('preview-back-btn').addEventListener('click', () => {
+function closePreview() {
   previewModal.classList.remove('open');
+}
+
+document.getElementById('preview-back-btn').addEventListener('click', closePreview);
+document.getElementById('preview-download-btn').addEventListener('click', downloadImage);
+
+// clicking anywhere outside the image itself (backdrop, empty space) also returns to editing
+previewModal.addEventListener('click', e => {
+  if (e.target === previewModalImg) return;
+  if (e.target.closest('.modal-btn')) return;
+  closePreview();
 });
 
-document.getElementById('preview-download-btn').addEventListener('click', downloadImage);
+// touch and drag directly on the preview image to reposition the background photo
+let modalDragState = null;
+let modalUpdateScheduled = false;
+
+function updateModalPreview() {
+  if (modalUpdateScheduled) return;
+  modalUpdateScheduled = true;
+  requestAnimationFrame(() => {
+    modalUpdateScheduled = false;
+    withFinalRender(() => {
+      previewModalImg.src = canvas.toDataURL('image/png');
+    });
+  });
+}
+
+previewModalImg.addEventListener('pointerdown', e => {
+  if (!bgImage) return;
+  modalDragState = { id: e.pointerId, startX: e.clientX, startY: e.clientY, startPos: { ...bgPosition } };
+  try { previewModalImg.setPointerCapture(e.pointerId); } catch (err) {}
+});
+previewModalImg.addEventListener('pointermove', e => {
+  if (!modalDragState || modalDragState.id !== e.pointerId) return;
+  const rect = previewModalImg.getBoundingClientRect();
+  const dx = (e.clientX - modalDragState.startX) / rect.width;
+  const dy = (e.clientY - modalDragState.startY) / rect.height;
+  bgPosition.x = clamp01(modalDragState.startPos.x - dx);
+  bgPosition.y = clamp01(modalDragState.startPos.y - dy);
+  draw();
+  updateModalPreview();
+});
+function endModalDrag(e) {
+  if (modalDragState && modalDragState.id === e.pointerId) modalDragState = null;
+}
+previewModalImg.addEventListener('pointerup', endModalDrag);
+previewModalImg.addEventListener('pointercancel', endModalDrag);
+previewModalImg.addEventListener('pointerleave', endModalDrag);
 
 /* ---------- apply saved settings on load ---------- */
 (function applySavedSettings() {
@@ -1381,11 +1619,12 @@ document.getElementById('preview-download-btn').addEventListener('click', downlo
   if (saved.categoryLabel) {
     const match = CATEGORIES.find(c => c.label === saved.categoryLabel);
     if (match) {
-      const idx = CATEGORIES.indexOf(match);
-      const btn = categoryWrap.children[idx];
-      if (btn) selectCategory(match, btn);
+      selectedCategory = match;
+      lineColor = match.color;
     }
   }
+  renderCategoryGroups();
+  draw();
 })();
 
 if (document.fonts && document.fonts.ready) {
