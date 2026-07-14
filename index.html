@@ -592,6 +592,18 @@
     </div>
 
     <div class="section">
+      <div class="label-row"><label class="title">Parceria</label></div>
+      <label class="upload-btn-big">
+        <span class="icon">🤝</span>
+        <span class="txt" id="partner-logo-label">Adicionar logo da parceria</span>
+        <input type="file" id="partner-logo-input" accept="image/*" style="display:none;">
+      </label>
+      <div class="file-name" id="partner-logo-filename"></div>
+      <button type="button" class="reset-pos-btn" id="remove-partner-logo-btn" style="display:none;">✕ Remover logo da parceria</button>
+      <p class="hint">A logo da parceria precisa ter fundo transparente para ficar melhor. As duas logos ficam do mesmo tamanho, lado a lado, no topo. Sem parceria, só a logo da TOP FM aparece centralizada.</p>
+    </div>
+
+    <div class="section">
       <div class="label-row"><label class="title">Posição / zoom da foto</label></div>
       <button type="button" class="reset-pos-btn" id="reset-pos-btn">↺ Repor posição e zoom</button>
     </div>
@@ -669,7 +681,6 @@ document.addEventListener('touchmove', e => {
 
 const CATEGORY_GROUPS = [
   { group: 'Institucional', groupEmoji: '🔵', items: [
-      { label: 'Polícia',  color: '#1E40AF' },
       { label: 'Política', color: '#2563EB' },
       { label: 'Eleições 2026', color: '#1D4ED8' },
       { label: 'Justiça',  color: '#3B82F6' }
@@ -680,6 +691,7 @@ const CATEGORY_GROUPS = [
       { label: 'Clima',         color: '#0D9488' }
   ]},
   { group: 'Alertas', groupEmoji: '🔴', items: [
+      { label: 'Polícia',  color: '##DC2626' },
       { label: 'Urgente', color: '#FF1744', big: true },
       { label: 'Ao Vivo', color: '#FF1744', big: true }
   ]},
@@ -687,8 +699,11 @@ const CATEGORY_GROUPS = [
       { label: 'Cidades',           color: '#F97316' },
       { label: 'Utilidade Pública', color: '#F9BC16' },
       { label: 'Planalto Norte',    color: '#FB923C' }
+    
   ]},
   { group: 'Ciência e Mundo', groupEmoji: '🔷', items: [
+      { label: 'Saúde',       color: '#10B981' },
+      { label: 'Educação',       color: '#F59E0B' },
       { label: 'Mundo',       color: '#0EA5E9' },
       { label: 'Tecnologia',  color: '#06B6D4' },
       { label: 'Tempo',       color: '#38BDF8' }
@@ -731,6 +746,8 @@ let logoImage = null;
 const defaultLogoImg = new Image();
 defaultLogoImg.onload = () => { logoImage = defaultLogoImg; draw(); };
 defaultLogoImg.src = DEFAULT_LOGO_SRC;
+
+let partnerLogoImage = null;
 
 const state = {
   headline: document.getElementById('headline').value,
@@ -1311,6 +1328,27 @@ document.getElementById('bg-input').addEventListener('change', e => {
   loadImageFromFile(file, img => { bgImage = img; draw(); });
 });
 
+document.getElementById('partner-logo-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('partner-logo-filename').textContent = file.name;
+  document.getElementById('partner-logo-label').textContent = 'Trocar logo da parceria';
+  loadImageFromFile(file, img => {
+    partnerLogoImage = img;
+    document.getElementById('remove-partner-logo-btn').style.display = '';
+    draw();
+  });
+});
+
+document.getElementById('remove-partner-logo-btn').addEventListener('click', () => {
+  partnerLogoImage = null;
+  document.getElementById('partner-logo-filename').textContent = '';
+  document.getElementById('partner-logo-label').textContent = 'Adicionar logo da parceria';
+  document.getElementById('remove-partner-logo-btn').style.display = 'none';
+  document.getElementById('partner-logo-input').value = '';
+  draw();
+});
+
 /* ---------- icons for footer ---------- */
 function drawRoundRect(x, y, w, h, r) {
   ctx.beginPath();
@@ -1412,16 +1450,46 @@ function draw(opts) {
   ctx.fillRect(0, 0, W, H);
 
   if (logoImage) {
-    const maxLogoW = 170;
-    const ratio = logoImage.width / logoImage.height;
-    let lw = maxLogoW, lh = maxLogoW / ratio;
-    if (lh > 110) { lh = 110; lw = lh * ratio; }
+    const logoTopY = 46;
     const logoMargin = 60;
-    let logoX;
-    if (logoAlign === 'left') logoX = logoMargin;
-    else if (logoAlign === 'right') logoX = W - lw - logoMargin;
-    else logoX = (W - lw) / 2;
-    ctx.drawImage(logoImage, logoX, 46, lw, lh);
+
+    if (partnerLogoImage) {
+      // both logos share the same height, placed side by side as a single block
+      const pairH = 80;
+      const maxEachW = 150;
+      const gap = 22;
+
+      const fitToHeight = (img) => {
+        const ratio = img.width / img.height;
+        let h = pairH, w = h * ratio;
+        if (w > maxEachW) { w = maxEachW; h = w / ratio; }
+        return { w, h };
+      };
+
+      const dimA = fitToHeight(logoImage);
+      const dimB = fitToHeight(partnerLogoImage);
+      const totalW = dimA.w + gap + dimB.w;
+
+      let startX;
+      if (logoAlign === 'left') startX = logoMargin;
+      else if (logoAlign === 'right') startX = W - totalW - logoMargin;
+      else startX = (W - totalW) / 2;
+
+      const yA = logoTopY + (pairH - dimA.h) / 2;
+      const yB = logoTopY + (pairH - dimB.h) / 2;
+      ctx.drawImage(logoImage, startX, yA, dimA.w, dimA.h);
+      ctx.drawImage(partnerLogoImage, startX + dimA.w + gap, yB, dimB.w, dimB.h);
+    } else {
+      const maxLogoW = 170;
+      const ratio = logoImage.width / logoImage.height;
+      let lw = maxLogoW, lh = maxLogoW / ratio;
+      if (lh > 110) { lh = 110; lw = lh * ratio; }
+      let logoX;
+      if (logoAlign === 'left') logoX = logoMargin;
+      else if (logoAlign === 'right') logoX = W - lw - logoMargin;
+      else logoX = (W - lw) / 2;
+      ctx.drawImage(logoImage, logoX, logoTopY, lw, lh);
+    }
   }
 
   const marginLeft = 92;
